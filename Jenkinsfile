@@ -6,7 +6,7 @@ pipeline {
         REMOTE_SERVER = '34.205.65.197'
         REMOTE_USER = 'ubuntu'
         PRIVATE_KEY_FILE = '/home/ahmed/AS/ansible.pem'
-        GIT_REPO_URL = 'https://github.com/your-username/your-repository.git'
+        GIT_REPO_URL = 'https://github.com/AhmedS0liman/hello-world.git'
         PROJECT_NAME = 'sparkjava-hello-world-1.0'
     }
     
