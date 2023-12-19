@@ -1,62 +1,46 @@
 pipeline {
     agent any
-    
+
     environment {
-        TOMCAT_CONTAINER_NAME = 'tomcat-tomcat-1'
-        REMOTE_SERVER = '34.205.65.197'
-        REMOTE_USER = 'ubuntu'
-        PRIVATE_KEY_FILE = '/home/ahmed/AS/ansible.pem'
-        GIT_REPO_URL = 'https://github.com/AhmedS0liman/hello-world.git'
-        PROJECT_NAME = 'sparkjava-hello-world-1.0'
+        TOMCAT_HOST = '34.205.65.197'
+        TOMCAT_PORT = '8080'
+        TOMCAT_USER = 'war-deployer'
+        TOMCAT_PASSWORD = 'pass123'
+        TOMCAT_CONTEXT_PATH = 'sparkjava-hello-world-1.0'
+        TOMCAT_MANAGER_URL = "http://${TOMCAT_USER}:${TOMCAT_PASSWORD}@${TOMCAT_HOST}:${TOMCAT_PORT}/manager/text"
+        DOCKER_TOMCAT_CONTAINER_ID = 'c966767a03cf'
+        DOCKER_JENKINS_CONTAINER_ID = '97f6923761a8'
+        GITHUB_REPO_URL = 'https://github.com/AhmedS0liman/hello-world.git'
     }
-    
+
     stages {
         stage('Checkout') {
             steps {
-                // Checkout your Git repository
-                git url: GIT_REPO_URL
-            }
-        }
-        
-        stage('Build') {
-            steps {
-                // Build the Maven project
-                sh 'mvn clean package'
-            }
-        }
-        
-        stage('Copy to Remote Server') {
-            steps {
-                // Copy the generated WAR file to the Tomcat webapps folder inside the Docker container on the remote server
                 script {
-                    CONTAINER_PATH = sh(script: "ssh -i ${PRIVATE_KEY_FILE} ${REMOTE_USER}@${REMOTE_SERVER} 'docker exec -i ${TOMCAT_CONTAINER_NAME} /bin/bash -c \"cd /usr/local/tomcat/webapps && pwd\"'", returnStdout: true).trim()
-                    sh "docker cp target/${PROJECT_NAME}.war ${REMOTE_SERVER}:${CONTAINER_PATH}/"
+                    // Assuming Git is installed in your Jenkins container
+                    git branch: 'master', url: GITHUB_REPO_URL
                 }
             }
         }
-        
-        stage('Restart Tomcat Container') {
+
+        stage('Build') {
             steps {
-                // Restart Tomcat Docker container on the remote server
-                sh "ssh -i ${PRIVATE_KEY_FILE} ${REMOTE_USER}@${REMOTE_SERVER} 'docker restart ${TOMCAT_CONTAINER_NAME}'"
+                script {
+                    // Build the Maven project
+                    docker.exec(DOCKER_JENKINS_CONTAINER_ID, "docker run --rm -v $(pwd):/app -w /app maven:3.8-jdk-11 mvn clean install")
+                }
             }
         }
-        
-        stage('Wait for Deployment') {
+
+        stage('Deploy to Tomcat') {
             steps {
-                // Wait for Tomcat deployment (you may need to adjust the sleep duration)
-                sleep time: 60, unit: 'SECONDS'
-            }
-        }
-    }
-    
-    post {
-        always {
-            // Stop Tomcat Docker container on the remote server after the tests (you may want to adjust this based on your needs)
-            script {
-                sh "ssh -i ${PRIVATE_KEY_FILE} ${REMOTE_USER}@${REMOTE_SERVER} 'docker stop ${TOMCAT_CONTAINER_NAME}'"
+                script {
+                    def warFileName = sh(script: 'ls target/*.war', returnStdout: true).trim()
+
+                    // Deploy the WAR file to Tomcat
+                    sh "curl -v -u ${TOMCAT_USER}:${TOMCAT_PASSWORD} --upload-file target/${warFileName} ${TOMCAT_MANAGER_URL}/deploy?path=/${TOMCAT_CONTEXT_PATH}"
+                }
             }
         }
     }
 }
-
