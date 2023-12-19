@@ -18,7 +18,7 @@ pipeline {
             steps {
                 script {
                     // Assuming Git is installed in your Jenkins container
-                    git branch: 'master', url: GITHUB_REPO_URL
+                    git branch: 'main', url: GITHUB_REPO_URL
                 }
             }
         }
